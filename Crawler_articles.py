@@ -48,7 +48,7 @@ def make_node_csv(titles: list):
     Outputs :
     - a .csv file
     """
-    f = open("./Crawler/csv/nodes.csv","w", encoding="utf8")
+    f = open("nodes.csv","w", encoding="utf8")
     f.write("id\tlabel\n")
     for i in titles:
         j = "{}\t{}\n".format(i.lower(),i)
@@ -120,22 +120,22 @@ def make_links_csv(articles,titles):
     Outputs :
     - a .csv file
     """
-    f = open("./Crawler/csv/liens.csv","w", encoding="utf8")
+    f = open("liens.csv","w", encoding="utf8")
     f.write("Source\tTarget\tWeight\n")
     cnt = 0
     for entree in articles:
         links = extract_links(entree)
-        if cnt%100 == 0 :
+        if cnt%1000 == 0 :
             print(cnt)
         for i in links:
-            if i in titles :
+            # if i in titles :
                 j = "{}\t{}\t{}\n".format(titles[cnt].lower(), i.lower(), links[i])
                 f.write(j)
             # else:
             #     j = "{}\t{}\t{}\n".format(titles[cnt].lower(), '404', links[i])
             #     f.write(j)
         cnt += 1
-    f.close
+    f.close()
     print("Edges processing ended")
 
 
@@ -143,7 +143,7 @@ def make_links_csv(articles,titles):
 
 ### Inputs ###
 # document_xml = "./Crawler/xml/test_article.xml"
-document_xml = "./Dumps/XML_files/frwiki-20240301-pages-articles-multistream1.xml"
+document_xml = "F:/Scrap Wikipedia/Dumps/XML_files/frwiki-20240301-pages-articles-multistream1.xml"
 
 ### Code ###
 titles = extract_titles(document_xml)
