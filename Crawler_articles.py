@@ -23,9 +23,9 @@ def extract_titles(document_xml: str) -> list:
     tree = ET.parse(document_xml)
     root = tree.getroot()
     # Jinsoul: maybe try merge these two "finds" as they're expensive operations
-    for inside in root.iter('{http://www.mediawiki.org/xml/export-0.10/}page'): #'for variable in root.iter('{le truc xmlns}nom_de_la_balise')' 
-        if inside.find('{http://www.mediawiki.org/xml/export-0.10/}ns').text == "0":
-            titles = inside.find('{http://www.mediawiki.org/xml/export-0.10/}title') 
+    for page in root.iter('{http://www.mediawiki.org/xml/export-0.10/}page'): #'for variable in root.iter('{le truc xmlns}nom_de_la_balise')' 
+        if page.find('{http://www.mediawiki.org/xml/export-0.10/}ns').text == "0":
+            titles = page.find('{http://www.mediawiki.org/xml/export-0.10/}title') 
             listA.append(titles.text)
     return listA
 
@@ -76,7 +76,7 @@ def extract_links(text) -> dict :
     and counts the number of occurence of each link.
     
     Parameters :
-    - document_xml (str) : the path to the file
+    - text (str) : Content of one article
 
     Outputs :
     - dict : A dictionary of all links and their count
@@ -129,10 +129,9 @@ def make_links_csv(articles,titles):
 ######## Magic Land ########
 
 ### Inputs ###
-# document_xml = "./Crawler/xml/test_article.xml"
-document_xml = "F:/Scrap Wikipedia/Dumps/XML_files/frwiki-20240301-pages-articles-multistream1.xml"
-# document_xml = "F:/Scrap Wikipedia/DLed_files/Wikipédia/frwiki-20240301-pages-articles-multistream1.xml-p1p306134.bz2"
-# document_xml = "F:/Scrap Wikipedia/DLed_files/Wikipédia/frwiki-20240301-pages-articles-multistream.xml.bz2"
+# document_xml = "test_article.xml"
+document_xml = "part_aa.xml"
+
 
 ### Code ###
 titles = extract_titles(document_xml)
