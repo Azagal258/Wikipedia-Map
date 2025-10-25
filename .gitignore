@@ -1,7 +1,10 @@
-/myenv
-liens.csv
-nodes.csv
-Japan-partial-subgraph-Interactive-Map2.html
-Japon-subgraph.svg
-liens_japon.csv
-liens_post.csv
+.env
+myenv/
+inputs/
+outputs/
+*.csv
+*.json
+*.sql
+*.xml
+
+
