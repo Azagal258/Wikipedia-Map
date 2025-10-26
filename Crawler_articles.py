@@ -1,5 +1,8 @@
 import xml.etree.ElementTree as ET
 import re
+import os
+import dotenv
+dotenv.load_dotenv()
 
 def extract_titles(root, namespace) -> list:
     """ 
@@ -29,7 +32,7 @@ def make_node_csv(titles: list):
     Outputs :
     - a .csv file
     """
-    f = open("nodes.csv","w", encoding="utf8")
+    f = open(os.getenv("NODES_CSV"),"w", encoding="utf8")
     f.write("id\tlabel\n")
     for i in titles:
         j = "{}\t{}\n".format(i.lower(),i)
@@ -97,7 +100,7 @@ def make_links_csv(articles,titles):
     Outputs :
     - a .csv file
     """
-    f = open("liens.csv","w", encoding="utf8")
+    f = open(os.getenv("EDGES_CSV"),"w", encoding="utf8")
     f.write("Source\tTarget\tWeight\n")
     cnt = 0
     for entree in articles:
@@ -118,7 +121,7 @@ def make_links_csv(articles,titles):
 
 ######## Magic Land ########
 
-document_xml = "F:/Scrap Wikipedia/Dumps/XML_files/frwiki-20240301-pages-articles-multistream1.xml"
+document_xml = os.getenv("DUMP_FILE")
 
 tree = ET.parse(document_xml)
 root = tree.getroot()
