@@ -4,7 +4,7 @@ import os
 import dotenv
 dotenv.load_dotenv()
 
-def extract_titles(root, namespace) -> list:
+def extract_titles(xml_doc, namespace) -> list:
     """ 
     Extract texts with 'title' tag and outputs a list of it if namespace is 0 
     
@@ -16,10 +16,12 @@ def extract_titles(root, namespace) -> list:
     """
     print("Nodes processing started")
     listA = []
-    for inside in root.iter('mw:page', namespace):  
-        if inside.find('mw:ns', namespace).text == "0":
-            titles = inside.find('mw:title', namespace) 
-            listA.append(titles.text)
+    for event, elem in ET.iterparse(xml_doc):
+        if elem.tag == namespace + "page":
+            if elem.findtext('mw:ns', namespace) == "0":
+                title = elem.findtext('mw:title', namespace)
+                listA.append(title)
+            elem.clear()
     return listA
 
 def make_node_csv(titles: list):
@@ -40,7 +42,7 @@ def make_node_csv(titles: list):
     f.close
     print("Nodes processing ended")
 
-def extract_articles(root, namespace):
+def extract_articles(xml_doc, namespace):
     """ 
     Extract texts with 'text' tag and outputs a list of it if namespace is 0 
     
@@ -52,10 +54,12 @@ def extract_articles(root, namespace):
     """
     print("Edges processing started")
     listB = []
-    for page in root.iter('mw:page', namespace):
-        if page.find('mw:ns', namespace).text == "0":
-            articles = page.find('mw:revision/mw:text', namespace)
-            listB.append(articles.text)
+    for event, elem in ET.iterparse(xml_doc):
+        if elem.tag == namespace + "page":
+            if elem.findtext('mw:ns', namespace) == "0":
+                article = elem.findtext('mw:revision/mw:text', namespace)
+                listB.append(article)
+            elem.clear()
     print("Ext art end")        
     return listB
 
@@ -108,29 +112,24 @@ def make_links_csv(articles,titles):
         if cnt%1000 == 0 :
             print(cnt)
         for i in links:
-            # if i in titles :
-                j = "{}\t{}\t{}\n".format(titles[cnt].lower(), i.lower(), links[i])
-                f.write(j)
-            # else:
-            #     j = "{}\t{}\t{}\n".format(titles[cnt].lower(), '404', links[i])
-            #     f.write(j)
+            j = "{}\t{}\t{}\n".format(titles[cnt].lower(), i.lower(), links[i])
+            f.write(j)
         cnt += 1
     f.close()
     print("Edges processing ended")
 
 
-######## Magic Land ########
 
 document_xml = os.getenv("DUMP_FILE")
 
-tree = ET.parse(document_xml)
-root = tree.getroot()
-# Default namespace is in the root tag
-default_ns = root.tag.split("}")[0].strip("{")
+for event, elem in ET.iterparse(document_xml, events=("start",)):
+    if elem.tag[0] == "{":
+        default_ns = elem.tag.split("}")[0].strip("{")
+    break
 namespace = {'mw': default_ns}
 
-titles = extract_titles(root, namespace)
+titles = extract_titles(document_xml, namespace)
 make_node_csv(titles)
 
-articles = extract_articles(root, namespace)
+articles = extract_articles(document_xml, namespace)
 make_links_csv(articles,titles)
