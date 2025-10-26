@@ -1,23 +1,7 @@
-# Code from 29/04/24 23:34
-######## To Do List ########
-# Finish implementing NS space to take only the articles (done)
-# Fix the xml not returning text in extract articles (done)
-# Implement bz2 partial decompression
-# Implement use of a file/DB instead of reading the whole file twice
-# Allow to choose file path and name of .csv
-# Add an basic UI
-
-######## Libraries ########
-
 import xml.etree.ElementTree as ET
 import re
 
-
-######## Functions ########
-
-### Nodes processing ###
-
-def extract_titles(document_xml: str) -> list:
+def extract_titles(root, namespace) -> list:
     """ 
     Extract texts with 'title' tag and outputs a list of it if namespace is 0 
     
@@ -29,12 +13,9 @@ def extract_titles(document_xml: str) -> list:
     """
     print("Nodes processing started")
     listA = []
-    tree = ET.parse(document_xml)
-    root = tree.getroot()
-    # Jinsoul: maybe try merge these two "finds" as they're expensive operations
-    for inside in root.iter('{http://www.mediawiki.org/xml/export-0.10/}page'): #'for variable in root.iter('{le truc xmlns}nom_de_la_balise')' 
-        if inside.find('{http://www.mediawiki.org/xml/export-0.10/}ns').text == "0":
-            titles = inside.find('{http://www.mediawiki.org/xml/export-0.10/}title') 
+    for inside in root.iter('mw:page', namespace):  
+        if inside.find('mw:ns', namespace).text == "0":
+            titles = inside.find('mw:title', namespace) 
             listA.append(titles.text)
     return listA
 
@@ -56,9 +37,7 @@ def make_node_csv(titles: list):
     f.close
     print("Nodes processing ended")
 
-### Edges processing ###
-
-def extract_articles(document_xml):
+def extract_articles(root, namespace):
     """ 
     Extract texts with 'text' tag and outputs a list of it if namespace is 0 
     
@@ -70,11 +49,9 @@ def extract_articles(document_xml):
     """
     print("Edges processing started")
     listB = []
-    tree = ET.parse(document_xml)
-    root = tree.getroot()
-    for page in root.iter('{http://www.mediawiki.org/xml/export-0.10/}page'):
-        if page.find('{http://www.mediawiki.org/xml/export-0.10/}ns').text == "0":
-            articles = page.find('{http://www.mediawiki.org/xml/export-0.10/}revision/{http://www.mediawiki.org/xml/export-0.10/}text')
+    for page in root.iter('mw:page', namespace):
+        if page.find('mw:ns', namespace).text == "0":
+            articles = page.find('mw:revision/mw:text', namespace)
             listB.append(articles.text)
     print("Ext art end")        
     return listB
@@ -141,13 +118,16 @@ def make_links_csv(articles,titles):
 
 ######## Magic Land ########
 
-### Inputs ###
-# document_xml = "./Crawler/xml/test_article.xml"
 document_xml = "F:/Scrap Wikipedia/Dumps/XML_files/frwiki-20240301-pages-articles-multistream1.xml"
 
-### Code ###
-titles = extract_titles(document_xml)
+tree = ET.parse(document_xml)
+root = tree.getroot()
+# Default namespace is in the root tag
+default_ns = root.tag.split("}")[0].strip("{")
+namespace = {'mw': default_ns}
+
+titles = extract_titles(root, namespace)
 make_node_csv(titles)
 
-articles = extract_articles(document_xml)
+articles = extract_articles(root, namespace)
 make_links_csv(articles,titles)
