@@ -34,12 +34,11 @@ def make_node_csv(titles: list):
     Outputs :
     - a .csv file
     """
-    f = open(os.getenv("NODES_CSV"),"w", encoding="utf8")
-    f.write("id\tlabel\n")
-    for i in titles:
-        j = "{}\t{}\n".format(i.lower(),i)
-        f.write(j)
-    f.close
+    with open(os.getenv("NODES_CSV"),"w", encoding="utf8") as f:
+        f.write("id\tlabel\n")
+        for entry in titles:
+            line = f"{entry.lower()}\t{entry}\n"
+            f.write(line)
     print("Nodes processing ended")
 
 def extract_articles(xml_doc, namespace):
@@ -104,18 +103,16 @@ def make_links_csv(articles,titles):
     Outputs :
     - a .csv file
     """
-    f = open(os.getenv("EDGES_CSV"),"w", encoding="utf8")
-    f.write("Source\tTarget\tWeight\n")
-    cnt = 0
-    for entree in articles:
-        links = extract_links(entree)
-        if cnt%1000 == 0 :
-            print(cnt)
-        for i in links:
-            j = "{}\t{}\t{}\n".format(titles[cnt].lower(), i.lower(), links[i])
-            f.write(j)
-        cnt += 1
-    f.close()
+    with open(os.getenv("EDGES_CSV"),"w", encoding="utf8") as f:
+        f.write("Source\tTarget\tWeight\n")
+
+        for step, entree in enumerate(articles):
+            links = extract_links(entree)
+            if step%1000 == 0 :
+                print(step)
+            for entry in links:
+                line = f"{titles[step].lower()}\t{entry.lower()}\t{links[entry]}\n"
+                f.write(line)
     print("Edges processing ended")
 
 
