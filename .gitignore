@@ -1,0 +1,10 @@
+.env
+myenv/
+inputs/
+outputs/
+*.csv
+*.json
+*.sql
+*.xml
+
+

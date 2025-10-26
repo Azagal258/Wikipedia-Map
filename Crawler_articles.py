@@ -1,23 +1,10 @@
-# Code from 29/04/24 23:34
-######## To Do List ########
-# Finish implementing NS space to take only the articles (done)
-# Fix the xml not returning text in extract articles (done)
-# Implement bz2 partial decompression
-# Implement use of a file/DB instead of reading the whole file twice
-# Allow to choose file path and name of .csv
-# Add an basic UI
-
-######## Libraries ########
-
 import xml.etree.ElementTree as ET
 import re
+import os
+import dotenv
+dotenv.load_dotenv()
 
-
-######## Functions ########
-
-### Nodes processing ###
-
-def extract_titles(document_xml: str) -> list:
+def extract_titles(xml_doc, namespace) -> list:
     """ 
     Extract texts with 'title' tag and outputs a list of it if namespace is 0 
     
@@ -29,13 +16,12 @@ def extract_titles(document_xml: str) -> list:
     """
     print("Nodes processing started")
     listA = []
-    tree = ET.parse(document_xml)
-    root = tree.getroot()
-    # Jinsoul: maybe try merge these two "finds" as they're expensive operations
-    for inside in root.iter('{http://www.mediawiki.org/xml/export-0.10/}page'): #'for variable in root.iter('{le truc xmlns}nom_de_la_balise')' 
-        if inside.find('{http://www.mediawiki.org/xml/export-0.10/}ns').text == "0":
-            titles = inside.find('{http://www.mediawiki.org/xml/export-0.10/}title') 
-            listA.append(titles.text)
+    for event, elem in ET.iterparse(xml_doc):
+        if elem.tag == namespace + "page":
+            if elem.findtext('mw:ns', namespace) == "0":
+                title = elem.findtext('mw:title', namespace)
+                listA.append(title)
+            elem.clear()
     return listA
 
 def make_node_csv(titles: list):
@@ -48,17 +34,14 @@ def make_node_csv(titles: list):
     Outputs :
     - a .csv file
     """
-    f = open("nodes.csv","w", encoding="utf8")
-    f.write("id\tlabel\n")
-    for i in titles:
-        j = "{}\t{}\n".format(i.lower(),i)
-        f.write(j)
-    f.close
+    with open(os.getenv("NODES_CSV"),"w", encoding="utf8") as f:
+        f.write("id\tlabel\n")
+        for entry in titles:
+            line = f"{entry.lower()}\t{entry}\n"
+            f.write(line)
     print("Nodes processing ended")
 
-### Edges processing ###
-
-def extract_articles(document_xml):
+def extract_articles(xml_doc, namespace):
     """ 
     Extract texts with 'text' tag and outputs a list of it if namespace is 0 
     
@@ -70,12 +53,12 @@ def extract_articles(document_xml):
     """
     print("Edges processing started")
     listB = []
-    tree = ET.parse(document_xml)
-    root = tree.getroot()
-    for page in root.iter('{http://www.mediawiki.org/xml/export-0.10/}page'):
-        if page.find('{http://www.mediawiki.org/xml/export-0.10/}ns').text == "0":
-            articles = page.find('{http://www.mediawiki.org/xml/export-0.10/}revision/{http://www.mediawiki.org/xml/export-0.10/}text')
-            listB.append(articles.text)
+    for event, elem in ET.iterparse(xml_doc):
+        if elem.tag == namespace + "page":
+            if elem.findtext('mw:ns', namespace) == "0":
+                article = elem.findtext('mw:revision/mw:text', namespace)
+                listB.append(article)
+            elem.clear()
     print("Ext art end")        
     return listB
 
@@ -120,34 +103,30 @@ def make_links_csv(articles,titles):
     Outputs :
     - a .csv file
     """
-    f = open("liens.csv","w", encoding="utf8")
-    f.write("Source\tTarget\tWeight\n")
-    cnt = 0
-    for entree in articles:
-        links = extract_links(entree)
-        if cnt%1000 == 0 :
-            print(cnt)
-        for i in links:
-            # if i in titles :
-                j = "{}\t{}\t{}\n".format(titles[cnt].lower(), i.lower(), links[i])
-                f.write(j)
-            # else:
-            #     j = "{}\t{}\t{}\n".format(titles[cnt].lower(), '404', links[i])
-            #     f.write(j)
-        cnt += 1
-    f.close()
+    with open(os.getenv("EDGES_CSV"),"w", encoding="utf8") as f:
+        f.write("Source\tTarget\tWeight\n")
+
+        for step, entree in enumerate(articles):
+            links = extract_links(entree)
+            if step%1000 == 0 :
+                print(step)
+            for entry in links:
+                line = f"{titles[step].lower()}\t{entry.lower()}\t{links[entry]}\n"
+                f.write(line)
     print("Edges processing ended")
 
 
-######## Magic Land ########
 
-### Inputs ###
-# document_xml = "./Crawler/xml/test_article.xml"
-document_xml = "F:/Scrap Wikipedia/Dumps/XML_files/frwiki-20240301-pages-articles-multistream1.xml"
+document_xml = os.getenv("DUMP_FILE")
 
-### Code ###
-titles = extract_titles(document_xml)
+for event, elem in ET.iterparse(document_xml, events=("start",)):
+    if elem.tag[0] == "{":
+        default_ns = elem.tag.split("}")[0].strip("{")
+    break
+namespace = {'mw': default_ns}
+
+titles = extract_titles(document_xml, namespace)
 make_node_csv(titles)
 
-articles = extract_articles(document_xml)
+articles = extract_articles(document_xml, namespace)
 make_links_csv(articles,titles)
