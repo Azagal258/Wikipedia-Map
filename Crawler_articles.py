@@ -1,10 +1,33 @@
 import xml.etree.ElementTree as ET
 import re
+import bz2
+import io
+import json
 import os
 import dotenv
 dotenv.load_dotenv()
 
-def extract_titles(xml_doc, namespace) -> list:
+def get_bytes_offset():
+    idx = set()
+    with open(os.getenv("INDEX_FILE"), "r", encoding="utf-8") as idx_file:
+        for line in idx_file:
+            # offset is the first item
+            idx.add(int(line.split(":", 1)[0]))
+        idx = sorted(idx)
+    return idx
+
+def get_data_chunk(start_offset, end_offset):
+    with open(os.getenv("DUMP_FILE"), 'rb') as f:
+        f.seek(start_offset)
+        chunk = f.read() if end_offset is None else f.read(end_offset - start_offset)
+
+    decompressor = bz2.BZ2Decompressor()
+    decompressed = decompressor.decompress(chunk)
+
+    xml_doc = "<root>" + decompressed.decode('utf-8', errors='ignore') + "</root>"
+    return xml_doc
+
+def extract_titles(xml_doc) -> list:
     """ 
     Extract texts with 'title' tag and outputs a list of it if namespace is 0 
     
@@ -14,15 +37,19 @@ def extract_titles(xml_doc, namespace) -> list:
     Outputs :
     - list : the list of all titles
     """
-    print("Nodes processing started")
-    listA = []
-    for event, elem in ET.iterparse(xml_doc):
-        if elem.tag == namespace + "page":
-            if elem.findtext('mw:ns', namespace) == "0":
-                title = elem.findtext('mw:title', namespace)
-                listA.append(title)
+    nodes = {}
+    for event, elem in ET.iterparse(io.StringIO(xml_doc)):
+        if elem.tag == "page":
+            if elem.findtext("ns") == "0":
+                title = elem.findtext("title")
+                id = elem.findtext("id")
+                sub_dict = {
+                    "lowercase" : title.lower(),
+                    "id" : id
+                    }
+                nodes[title] = sub_dict
             elem.clear()
-    return listA
+    return nodes
 
 def make_node_csv(titles: list):
     """ 
@@ -39,9 +66,8 @@ def make_node_csv(titles: list):
         for entry in titles:
             line = f"{entry.lower()}\t{entry}\n"
             f.write(line)
-    print("Nodes processing ended")
 
-def extract_articles(xml_doc, namespace):
+def extract_articles(xml_doc):
     """ 
     Extract texts with 'text' tag and outputs a list of it if namespace is 0 
     
@@ -51,16 +77,16 @@ def extract_articles(xml_doc, namespace):
     Outputs :
     - list : the list of all articles
     """
-    print("Edges processing started")
-    listB = []
-    for event, elem in ET.iterparse(xml_doc):
-        if elem.tag == namespace + "page":
-            if elem.findtext('mw:ns', namespace) == "0":
-                article = elem.findtext('mw:revision/mw:text', namespace)
-                listB.append(article)
+    edges = {}
+    for event, elem in ET.iterparse(io.StringIO(xml_doc)):
+        if elem.tag == "page":
+            if elem.findtext("ns") == "0":
+                title = elem.findtext("title")
+                article = elem.findtext("revision/text")
+
+                edges[title] = extract_links(article)
             elem.clear()
-    print("Ext art end")        
-    return listB
+    return edges
 
 def extract_links(text) -> dict :
     """
@@ -86,9 +112,11 @@ def extract_links(text) -> dict :
             matches[i] = A[0]
 
     links_count = {}
+    global nodes
     for match in matches:
-        # Add 1 to the link value, otherwise appends with value 1
-        links_count[match] = links_count.get(match, 0) + 1
+        if match in nodes:
+            # Add 1 to the link value, otherwise appends with value 1
+            links_count[match] = links_count.get(match, 0) + 1
     return links_count
 
 def make_links_csv(articles,titles):
@@ -113,20 +141,35 @@ def make_links_csv(articles,titles):
             for entry in links:
                 line = f"{titles[step].lower()}\t{entry.lower()}\t{links[entry]}\n"
                 f.write(line)
-    print("Edges processing ended")
+
+def process_dump(byte_offsets, function, type_ext):
+    output_dict = {}
+    for i, offset in enumerate(byte_offsets):
+        if i < len(byte_offsets)-1 :
+            end_offset = byte_offsets[i+1]
+        else :
+            end_offset = None
+        xml_str = get_data_chunk(offset, end_offset)
+        print(f"{type_ext} extraction #{i+1}/{len(byte_offsets)} done")
+        output_dict.update(function(xml_str))
+    return output_dict
 
 
+byte_offsets = get_bytes_offset() # [632, 1322616, 2295548, 3476219]
 
-document_xml = os.getenv("DUMP_FILE")
+nodes = process_dump(byte_offsets, extract_titles, "Title")
+edges = process_dump(byte_offsets, extract_articles, "Link")
 
-for event, elem in ET.iterparse(document_xml, events=("start",)):
-    if elem.tag[0] == "{":
-        default_ns = elem.tag.split("}")[0].strip("{")
-    break
-namespace = {'mw': default_ns}
+print("Processing completed\nExporting results... ")
+with open(os.getenv("NODES_JSON"), "w", encoding='utf-8') as t_output :
+    json.dump(nodes, t_output, ensure_ascii=False, indent=2)         
 
-titles = extract_titles(document_xml, namespace)
-make_node_csv(titles)
+print("Nodes exported")
 
-articles = extract_articles(document_xml, namespace)
-make_links_csv(articles,titles)
+with open(os.getenv("EDGES_JSON"), "w", encoding='utf-8') as l_output :
+    json.dump(edges, l_output, ensure_ascii=False, indent=2)
+print("Edges exported\nShutting down...")
+
+
+# make_node_csv(titles)
+# make_links_csv(articles,titles)
