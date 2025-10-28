@@ -7,7 +7,15 @@ import os
 import dotenv
 dotenv.load_dotenv()
 
-def get_bytes_offset():
+def get_bytes_offset() -> list:
+    """
+    Gets all multistream offsets from the Wikidump index file
+
+    Returns
+    -
+    idx : list
+        Index of all byte offsets
+    """
     idx = set()
     with open(os.getenv("INDEX_FILE"), "r", encoding="utf-8") as idx_file:
         for line in idx_file:
@@ -16,7 +24,23 @@ def get_bytes_offset():
         idx = sorted(idx)
     return idx
 
-def get_data_chunk(start_offset, end_offset):
+def get_data_chunk(start_offset:int, end_offset:int) -> str:
+    """
+    Partially decompress the archive from given offsets hen adds \\
+    a fake `<root>` element is added for validity
+
+    Parameters
+    -
+    start_offset : int
+        Data stream starting point
+    end_offset : int or None
+        Data stream ending point. If `None` then goes to EOF
+
+    Returns
+    -
+    xml_doc : str
+        The extracted and decoded xml stream.   
+    """
     with open(os.getenv("DUMP_FILE"), 'rb') as f:
         f.seek(start_offset)
         chunk = f.read() if end_offset is None else f.read(end_offset - start_offset)
@@ -27,15 +51,19 @@ def get_data_chunk(start_offset, end_offset):
     xml_doc = "<root>" + decompressed.decode('utf-8', errors='ignore') + "</root>"
     return xml_doc
 
-def extract_titles(xml_doc) -> list:
-    """ 
-    Extract texts with 'title' tag and outputs a list of it if namespace is 0 
-    
-    Parameters :
-    - document_xml (str) : the path to the file
+def extract_titles(xml_doc:str) -> dict:
+    """
+    Parses a xml file and format all titles and ids in main namespace
 
-    Outputs :
-    - list : the list of all titles
+    Parameters
+    -
+    xml_doc : str
+        Unprocessed XML file contents
+    
+    Returns
+    -
+    nodes : dict
+        Titles and IDs grouped by article of origin 
     """
     nodes = {}
     for event, elem in ET.iterparse(io.StringIO(xml_doc)):
@@ -55,11 +83,10 @@ def make_node_csv(titles: list):
     """ 
     Make a csv files of all the titles with them as label and lowercase as id 
     
-    Parameters :
-    - document_xml (str) : the path to the file
-
-    Outputs :
-    - a .csv file
+    Parameters
+    -
+    titles : list
+        All titles
     """
     with open(os.getenv("NODES_CSV"),"w", encoding="utf8") as f:
         f.write("id\tlabel\n")
@@ -67,15 +94,19 @@ def make_node_csv(titles: list):
             line = f"{entry.lower()}\t{entry}\n"
             f.write(line)
 
-def extract_articles(xml_doc):
-    """ 
-    Extract texts with 'text' tag and outputs a list of it if namespace is 0 
-    
-    Parameters :
-    - document_xml (str) : the path to the file
+def extract_articles(xml_doc:str) -> dict:
+    """
+    Parses a xml file and extracts all wikilinks
 
-    Outputs :
-    - list : the list of all articles
+    Parameters
+    -
+    xml_doc : str
+        Unprocessed XML file contents
+    
+    Returns
+    -
+    edges : dict
+        Wikilinks grouped by article of origin
     """
     edges = {}
     for event, elem in ET.iterparse(io.StringIO(xml_doc)):
@@ -88,16 +119,20 @@ def extract_articles(xml_doc):
             elem.clear()
     return edges
 
-def extract_links(text) -> dict :
+def extract_links(text: str) -> dict:
     """
-    Extracts strings contained between double brackets (wikicode links) from the given text 
+    Extracts strings contained between double brackets (wikicode links)\\
     and counts the number of occurence of each link.
     
-    Parameters :
-    - document_xml (str) : the path to the file
+    Parameters
+    -
+    text : str 
+        Raw contents of an article
 
-    Outputs :
-    - dict : A dictionary of all links and their count
+    Returns
+    - 
+    links_count : dict
+        All wikilinks and their count
     """
     # Pattern to match
     pattern = r'\[\[([^\[\]]*)\]\]'
@@ -119,17 +154,17 @@ def extract_links(text) -> dict :
             links_count[match] = links_count.get(match, 0) + 1
     return links_count
 
-def make_links_csv(articles,titles):
+def make_links_csv(articles: list,titles: list):
     """ 
-    Make a csv files with the lower case titles as origin, referenced article as target 
+    Make a csv files with the lower case titles as origin, referenced article as target\\ 
     and amount of reference as weight if the referenced article exists in the titles
     
-    Parameters :
-    - articles (list) : the list of all articles
-    - titles (list) : the list of all titles
-
-    Outputs :
-    - a .csv file
+    Parameters
+    -
+    articles : list
+        All articles
+    titles : list
+        All titles
     """
     with open(os.getenv("EDGES_CSV"),"w", encoding="utf8") as f:
         f.write("Source\tTarget\tWeight\n")
@@ -142,15 +177,38 @@ def make_links_csv(articles,titles):
                 line = f"{titles[step].lower()}\t{entry.lower()}\t{links[entry]}\n"
                 f.write(line)
 
-def process_dump(byte_offsets, function, type_ext):
+def process_dump(byte_offsets: list, function: function, type_ext: str) -> dict:
+    """
+    Prepares offsets for parsing the dump then passes those to \\
+    the given functions to process it the extracted data chunk
+
+    Parameters
+    -
+    byte_offsets : list
+        Offsets present in the MW dump's index file
+    function : function
+        Way to process the dump
+    type_ext : str
+        Used to make output display clearer
+
+    Returns
+    -
+    output_dict : dict
+        Fully processed dump
+    """
     output_dict = {}
     for i, offset in enumerate(byte_offsets):
+        # use next offset as block end
         if i < len(byte_offsets)-1 :
             end_offset = byte_offsets[i+1]
+        # last offset as None to force EOF
         else :
             end_offset = None
+        
         xml_str = get_data_chunk(offset, end_offset)
         print(f"{type_ext} extraction #{i+1}/{len(byte_offsets)} done")
+        
+        # cleanly merge dicts together
         output_dict.update(function(xml_str))
     return output_dict
 
