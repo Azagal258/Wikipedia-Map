@@ -79,21 +79,6 @@ def extract_titles(xml_doc:str) -> dict:
             elem.clear()
     return nodes
 
-def make_node_csv(titles: list):
-    """ 
-    Make a csv files of all the titles with them as label and lowercase as id 
-    
-    Parameters
-    -
-    titles : list
-        All titles
-    """
-    with open(os.getenv("NODES_CSV"),"w", encoding="utf8") as f:
-        f.write("id\tlabel\n")
-        for entry in titles:
-            line = f"{entry.lower()}\t{entry}\n"
-            f.write(line)
-
 def extract_articles(xml_doc:str) -> dict:
     """
     Parses a xml file and extracts all wikilinks
@@ -154,29 +139,6 @@ def extract_links(text: str) -> dict:
             links_count[match] = links_count.get(match, 0) + 1
     return links_count
 
-def make_links_csv(articles: list,titles: list):
-    """ 
-    Make a csv files with the lower case titles as origin, referenced article as target\\ 
-    and amount of reference as weight if the referenced article exists in the titles
-    
-    Parameters
-    -
-    articles : list
-        All articles
-    titles : list
-        All titles
-    """
-    with open(os.getenv("EDGES_CSV"),"w", encoding="utf8") as f:
-        f.write("Source\tTarget\tWeight\n")
-
-        for step, entree in enumerate(articles):
-            links = extract_links(entree)
-            if step%1000 == 0 :
-                print(step)
-            for entry in links:
-                line = f"{titles[step].lower()}\t{entry.lower()}\t{links[entry]}\n"
-                f.write(line)
-
 def process_dump(byte_offsets: list, function: function, type_ext: str) -> dict:
     """
     Prepares offsets for parsing the dump then passes those to \\
@@ -212,6 +174,43 @@ def process_dump(byte_offsets: list, function: function, type_ext: str) -> dict:
         output_dict.update(function(xml_str))
     return output_dict
 
+def make_node_csv(titles: list):
+    """ 
+    Make a csv files of all the titles with them as label and lowercase as id 
+    
+    Parameters
+    -
+    titles : list
+        All titles
+    """
+    with open(os.getenv("NODES_CSV"),"w", encoding="utf8") as f:
+        f.write("id\tlabel\n")
+        for entry in titles:
+            line = f"{entry.lower()}\t{entry}\n"
+            f.write(line)
+
+def make_links_csv(articles: list,titles: list):
+    """ 
+    Make a csv files with the lower case titles as origin, referenced article as target\\ 
+    and amount of reference as weight if the referenced article exists in the titles
+    
+    Parameters
+    -
+    articles : list
+        All articles
+    titles : list
+        All titles
+    """
+    with open(os.getenv("EDGES_CSV"),"w", encoding="utf8") as f:
+        f.write("Source\tTarget\tWeight\n")
+
+        for step, entree in enumerate(articles):
+            links = extract_links(entree)
+            if step%1000 == 0 :
+                print(step)
+            for entry in links:
+                line = f"{titles[step].lower()}\t{entry.lower()}\t{links[entry]}\n"
+                f.write(line)
 
 byte_offsets = get_bytes_offset() # [632, 1322616, 2295548, 3476219]
 
