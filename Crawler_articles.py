@@ -71,11 +71,18 @@ def extract_titles(xml_doc:str) -> dict:
             if elem.findtext("ns") == "0":
                 title = elem.findtext("title")
                 id = elem.findtext("id")
-                sub_dict = {
+                # Redirects have a special tag
+                if elem.find("redirect") is not None:
+                    # Get the target 
+                    redirect = elem.find("redirect").get("title")
+                else :
+                    redirect = None
+
+                nodes[title] = {
                     "lowercase" : title.lower(),
-                    "id" : id
+                    "id" : id,
+                    "redirect" :  redirect
                     }
-                nodes[title] = sub_dict
             elem.clear()
     return nodes
 
