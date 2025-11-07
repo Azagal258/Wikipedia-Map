@@ -212,20 +212,23 @@ def make_links_csv(articles: list,titles: list):
                 line = f"{titles[step].lower()}\t{entry.lower()}\t{links[entry]}\n"
                 f.write(line)
 
-byte_offsets = get_bytes_offset() # [632, 1322616, 2295548, 3476219]
+def json_export():
+    with open(os.getenv("NODES_JSON"), "w", encoding='utf-8') as t_output :
+        json.dump(nodes, t_output, ensure_ascii=False, indent=2)         
+    print("Nodes exported")
 
-nodes = process_dump(byte_offsets, extract_titles, "Title")
-edges = process_dump(byte_offsets, extract_articles, "Link")
+    with open(os.getenv("EDGES_JSON"), "w", encoding='utf-8') as l_output :
+        json.dump(edges, l_output, ensure_ascii=False, indent=2)
+    print("Edges exported\nShutting down...")
 
-print("Processing completed\nExporting results... ")
-with open(os.getenv("NODES_JSON"), "w", encoding='utf-8') as t_output :
-    json.dump(nodes, t_output, ensure_ascii=False, indent=2)         
 
-print("Nodes exported")
+if __name__ == "__main__":
+    byte_offsets = get_bytes_offset() # [632, 1322616, 2295548, 3476219]
 
-with open(os.getenv("EDGES_JSON"), "w", encoding='utf-8') as l_output :
-    json.dump(edges, l_output, ensure_ascii=False, indent=2)
-print("Edges exported\nShutting down...")
+    nodes = process_dump(byte_offsets, extract_titles, "Title")
+    edges = process_dump(byte_offsets, extract_articles, "Link")
+
+
 
 
 # make_node_csv(titles)
