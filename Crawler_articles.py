@@ -100,18 +100,17 @@ def extract_articles(xml_doc:str) -> dict:
     edges : dict
         Wikilinks grouped by article of origin
     """
-    edges = {}
     for event, elem in ET.iterparse(io.StringIO(xml_doc)):
         if elem.tag == "page":
             if elem.findtext("ns") == "0":
                 title = elem.findtext("title")
                 article = elem.findtext("revision/text")
 
-                edges[title] = extract_links(article)
+                extract_links(article, title)
             elem.clear()
-    return edges
+    return ""
 
-def extract_links(text: str) -> dict:
+def extract_links(text: str, title: str) -> dict:
     """
     Extracts strings contained between double brackets (wikicode links)\\
     and counts the number of occurence of each link.
@@ -144,7 +143,16 @@ def extract_links(text: str) -> dict:
         if match in nodes:
             # Add 1 to the link value, otherwise appends with value 1
             links_count[match] = links_count.get(match, 0) + 1
-    return links_count
+
+    dict_list = []
+    for link in links_count:
+        val = {
+            "title" : link,
+            "count" : links_count[link]
+        }
+        dict_list.append(val)
+    
+    nodes[title]["link_to"] = dict_list
 
 def process_dump(byte_offsets: list, function: function, type_ext: str) -> dict:
     """
