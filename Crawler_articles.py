@@ -138,9 +138,9 @@ def extract_links(text: str, title: str) -> dict:
             matches[i] = A[0]
 
     links_count = {}
-    global nodes
+    global export
     for match in matches:
-        if match in nodes:
+        if match in export:
             # Add 1 to the link value, otherwise appends with value 1
             links_count[match] = links_count.get(match, 0) + 1
 
@@ -152,9 +152,9 @@ def extract_links(text: str, title: str) -> dict:
         }
         dict_list.append(val)
     
-    nodes[title]["link_to"] = dict_list
+    export[title]["link_to"] = dict_list
 
-def process_dump(byte_offsets: list, function: function, type_ext: str) -> dict:
+def process_dump(byte_offsets: list, function, type_ext: str, is_test : bool) -> dict:
     """
     Prepares offsets for parsing the dump then passes those to \\
     the given functions to process it the extracted data chunk
@@ -179,6 +179,8 @@ def process_dump(byte_offsets: list, function: function, type_ext: str) -> dict:
         if i < len(byte_offsets)-1 :
             end_offset = byte_offsets[i+1]
         # last offset as None to force EOF
+        elif is_test :
+            end_offset = 6838984
         else :
             end_offset = None
         
@@ -227,22 +229,30 @@ def make_links_csv(articles: list,titles: list):
                 line = f"{titles[step].lower()}\t{entry.lower()}\t{links[entry]}\n"
                 f.write(line)
 
-def json_export():
-    with open(os.getenv("NODES_JSON"), "w", encoding='utf-8') as t_output :
-        json.dump(nodes, t_output, ensure_ascii=False, indent=2)         
-    print("Nodes exported")
+def json_export(export):
+    with open(os.getenv("EXPORT_JSON"), "w", encoding='utf-8') as t_output :
+        json.dump(export, t_output, ensure_ascii=False, indent=2)         
+    print(f"Successfully exported to {os.getenv("EXPORT_JSON")}")
 
-    with open(os.getenv("EDGES_JSON"), "w", encoding='utf-8') as l_output :
-        json.dump(edges, l_output, ensure_ascii=False, indent=2)
-    print("Edges exported\nShutting down...")
+def main(is_test: bool):
+    global export
+    global final_offset
 
+    if is_test:
+        ext = get_bytes_offset()[:7]
+        byte_offsets = ext[:6]
+        final_offset = ext[6]
+    else:
+        byte_offsets = get_bytes_offset()
+
+    export = process_dump(byte_offsets, extract_titles, "Title", is_test)
+    process_dump(byte_offsets, extract_articles, "Link", is_test)
+    json_export(export)
 
 if __name__ == "__main__":
-    byte_offsets = get_bytes_offset() # [632, 1322616, 2295548, 3476219]
-
-    nodes = process_dump(byte_offsets, extract_titles, "Title")
-    edges = process_dump(byte_offsets, extract_articles, "Link")
-
+    main(True)
+    export = {}
+    final_offset = 0
 
 
 
