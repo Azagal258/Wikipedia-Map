@@ -54,9 +54,11 @@ def insert_data_page():
             row = (pdo[entry]["id"], entry, None)
             row_list.append(row)
 
-            if i%1000 == 0:
+            if i%50000 == 0:
                 execute_values(cur, query, row_list)
+                print(f"{i} articles inserted")
                 row_list.clear()
+                
 
         execute_values(cur, query, row_list)
 
@@ -72,6 +74,7 @@ def insert_data_links():
     with get_conn() as conn:
         cur = conn.cursor()
         pdo = state.parser_data_out
+        cnt = 0
        
         for article_entry in pdo:
             for link_entry in pdo[article_entry]["link_to"]:
@@ -86,18 +89,23 @@ def insert_data_links():
 
                 if len(row_list)%50000 == 0:
                     execute_values(cur, query, row_list)
+                    cnt += 1
+                    print(f"{cnt*50000} wikilinks inserted")
                     row_list.clear()
 
         execute_values(cur, query, row_list)
 
+def main():
+    print("Starting data inserts")
+    create_tables()
+    get_conn().cursor().execute("""TRUNCATE page CASCADE""")
+    insert_data_page()
+    insert_data_links()
+    print("Data insertion finished")
 
 if __name__ == "__main__":
     is_test = True
 
     if is_test:
-        create_tables()
         state.load_test_data()
-        get_conn().cursor().execute("""TRUNCATE page CASCADE""")
-        insert_data_page()
-        insert_data_links()
-
+    main()

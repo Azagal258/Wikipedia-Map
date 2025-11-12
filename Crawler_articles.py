@@ -1,3 +1,4 @@
+import state
 import xml.etree.ElementTree as ET
 import re
 import bz2
@@ -7,7 +8,7 @@ import os
 import dotenv
 dotenv.load_dotenv()
 
-def get_bytes_offset() -> list:
+def get_bytes_offset() -> list[int]:
     """
     Gets all multistream offsets from the Wikidump index file
 
@@ -108,9 +109,9 @@ def extract_articles(xml_doc:str) -> dict:
 
                 extract_links(article, title)
             elem.clear()
-    return ""
+    return {}
 
-def extract_links(text: str, title: str) -> dict:
+def extract_links(text: str, title: str):
     """
     Extracts strings contained between double brackets (wikicode links)\\
     and counts the number of occurence of each link.
@@ -180,7 +181,8 @@ def process_dump(byte_offsets: list, function, type_ext: str, is_test : bool) ->
             end_offset = byte_offsets[i+1]
         # last offset as None to force EOF
         elif is_test :
-            end_offset = 6838984
+            global final_offset
+            end_offset = final_offset
         else :
             end_offset = None
         
@@ -239,20 +241,27 @@ def main(is_test: bool):
     global final_offset
 
     if is_test:
-        ext = get_bytes_offset()[:7]
-        byte_offsets = ext[:6]
-        final_offset = ext[6]
+        batch_count = 100
+        ext = get_bytes_offset()[:batch_count]
+        byte_offsets = ext[:(batch_count-1)]
+        final_offset = ext[(batch_count-1)]
     else:
         byte_offsets = get_bytes_offset()
 
     export = process_dump(byte_offsets, extract_titles, "Title", is_test)
     process_dump(byte_offsets, extract_articles, "Link", is_test)
-    json_export(export)
+    
+    state.parser_data_out = export
+    
+    if input("Do you want to export the data as JSON? (y/n)\n").lower() in ["y", "ye", "yes"]:
+        json_export(export)
+
+export = {}
+final_offset = 0
 
 if __name__ == "__main__":
-    main(True)
-    export = {}
-    final_offset = 0
+    is_test = True
+    main(is_test)
 
 
 
